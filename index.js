@@ -20,7 +20,7 @@ const computeConfig = {
     CNVSEC_ID: CNVSEC_ID,
 };
 
-function getRpcError(message, id=33){
+function getMalRpcError(message, id=33){
     return {
         isMaclicious: true,
         rpcResp:{
@@ -38,12 +38,12 @@ async function checkAddress(address){
     try {
         let result = await convo.omnid.kits.isMalicious(address, computeConfig);
         console.log('omnid.kits.isMalicious', result);
-        if (result?.alchemy) return getRpcError(`Spam Contract Flagged by Alchemy`);
-        else if (result?.cryptoscamdb) return getRpcError(`Contract Flagged by CryptoscamDB`);
-        else if (result?.etherscan) return getRpcError(`Address Flagged by Etherscan`);
-        else if (result?.mew) return getRpcError(`Address Flagged by MyEtherWallet`);
-        else if (result?.sdn) return getRpcError(`Address Flagged by OFAC`);
-        else if (result?.tokenblacklist) return getRpcError(`Address Blacklisted by Stablecoin`);
+        if (result?.alchemy && result.alchemy === true) return getMalRpcError(`Spam Contract Flagged by Alchemy`);
+        else if (result?.cryptoscamdb && result.cryptoscamdb === true) return getMalRpcError(`Contract Flagged by CryptoscamDB`);
+        else if (result?.etherscan && result.etherscan === true) return getMalRpcError(`Address Flagged by Etherscan`);
+        else if (result?.mew) return getMalRpcError(`Address Flagged by MyEtherWallet`);
+        else if (result?.sdn) return getMalRpcError(`Address Flagged by OFAC`);
+        else if (result?.tokenblacklist) return getMalRpcError(`Address Blacklisted by Stablecoin`);
         else return {isMalicious: false}
 
     } catch (error) {
@@ -57,7 +57,10 @@ async function passthroughRPC(req) {
         method: "POST",
         body: JSON.stringify(req.body),
         headers: {
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            "Accept": 'application/json',
+            "infura-source": 'metamask/internal',
+            "origin": 'chrome-extension://nkbihfbeogaeaoehlefnkodbefgpgknn'
         }
     }).then(e=>e.json());
 
@@ -65,15 +68,10 @@ async function passthroughRPC(req) {
     return data;
 }
 
-async function submitRawSignature(sig) {
+async function submitRawSignature(req) {
     let data = await fetch(RPC_URL, {
         method: "POST",
-        body: JSON.stringify({
-            'jsonrpc': '2.0',
-            'method': 'eth_sendRawTransaction',
-            'params': [sig],
-            'id': Math.floor(Math.random() * 10000000)
-        }),
+        body: JSON.stringify(req.body),
         headers: {
             'Content-Type': 'application/json'
         }
@@ -104,11 +102,11 @@ async function processTxs(req) {
             return rpcResp;
         }
         else {
-            return await submitRawSignature(req.body['params'][0]);
+            return await submitRawSignature(req);
         }
     }
     else {
-        return await submitRawSignature(req.body['params'][0]);
+        return await submitRawSignature(req);
     }
 
 
@@ -123,13 +121,13 @@ fastify
 fastify
     .post('/', async (req, reply) => {
 
-        console.log('call', req.body);
+        console.log('call',  req.hostname ,req.body);
         if (req.body['method'] == 'eth_sendRawTransaction') {
             let resp = await processTxs(req)
             reply.send(resp);
         }
         else if (req.body['method'] == 'eth_bypassSendRawTransaction') {
-            let resp = await submitRawSignature(req.body['params'][0]);
+            let resp = await submitRawSignature(req);
             reply.send(resp);
         }
         else {
@@ -142,3 +140,5 @@ fastify
 fastify.listen({ port: process.env.PORT || 8545 }, (err, address) => {
     if (err) throw err
 })
+
+// checkAddress('0x8576aCC5C05D6Ce88f4e49bf65BdF0C62F91353C').then(console.log)
