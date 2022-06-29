@@ -137,7 +137,7 @@ fastify
 
     })
 
-fastify.listen({ port: process.env.PORT || 8545 }, (err, address) => {
+fastify.listen({ port: process.env.PORT || 8545, hostname: '0.0.0.0' }, (err, address) => {
     if (err) throw err
 })
 
