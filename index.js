@@ -137,8 +137,9 @@ fastify
 
     })
 
-fastify.listen({ port: process.env.PORT || 8545, hostname: '0.0.0.0' }, (err, address) => {
+fastify.listen({ port: process.env.PORT || 8545, host: "0.0.0.0" }, (err, address) => {
     if (err) throw err
+    console.log(`Server listening on ${address}`);
 })
 
 // checkAddress('0x8576aCC5C05D6Ce88f4e49bf65BdF0C62F91353C').then(console.log)
