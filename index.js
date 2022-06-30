@@ -1,10 +1,10 @@
+'strict'
+
 require('dotenv').config({ path: '.env' })
-const path = require('path')
 const fastify = require('fastify')({ logger: false })
 const helmet = require('@fastify/helmet')
 const compress = require('@fastify/compress')
 const cors = require('@fastify/cors')
-// const static = require('@fastify/static')
 
 const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
 const toBuffer = require('ethereumjs-util').toBuffer
@@ -14,19 +14,23 @@ const { Convo } = require('@theconvospace/sdk')
 fastify.register(helmet, { global: true })
 fastify.register(compress, { global: true })
 fastify.register(cors, { global: true, origin: "*" })
-// fastify.register(static, {
-//     root: path.join(__dirname, 'public/'),
-//     redirect: true
-// })
 
 
-const { RPC_URL, CONVO_API_KEY, ALCHEMY_API_KEY, CNVSEC_ID  } = process.env;
+const { MAINNET_RPC_URL, ROPSTEN_RPC_URL, KOVAN_RPC_URL, RINKEBY_RPC_URL, GOERLI_RPC_URL, CONVO_API_KEY, ALCHEMY_API_KEY, CNVSEC_ID  } = process.env;
 
 const convo = new Convo(CONVO_API_KEY);
 const computeConfig = {
     alchemyApiKey: ALCHEMY_API_KEY,
     CNVSEC_ID: CNVSEC_ID,
 };
+const networkToRpc = {
+    'mainnet': MAINNET_RPC_URL,
+    'ropsten': ROPSTEN_RPC_URL,
+    'kovan': KOVAN_RPC_URL,
+    'rinkeby': RINKEBY_RPC_URL,
+    'goerli': GOERLI_RPC_URL,
+}
+Object.freeze(networkToRpc);
 
 function getMalRpcError(message, id=33){
     return {
@@ -60,8 +64,8 @@ async function checkAddress(address){
 }
 
 
-async function passthroughRPC(req) {
-    let data = await fetch(RPC_URL, {
+async function passthroughRPC(network, req) {
+    let data = await fetch(networkToRpc[network], {
         method: "POST",
         body: JSON.stringify(req.body),
         headers: {
@@ -72,12 +76,12 @@ async function passthroughRPC(req) {
         }
     }).then(e=>e.json());
 
-    console.log('passthroughRPC/result', data);
+    // console.log('passthroughRPC/result', data);
     return data;
 }
 
-async function submitRawSignature(req) {
-    let data = await fetch(RPC_URL, {
+async function submitRawSignature(network, req) {
+    let data = await fetch(networkToRpc[network], {
         method: "POST",
         body: JSON.stringify(req.body),
         headers: {
@@ -88,17 +92,17 @@ async function submitRawSignature(req) {
         }
     }).then(e=>e.json());
 
-    console.log('submitRawSignature/result', data);
+    // console.log('submitRawSignature/result', data);
     return data;
 }
 
-async function processTxs(req) {
+async function processTxs(network, req) {
 
     var txData = toBuffer(req.body['params'][0])
     var deserializedTx = FeeMarketEIP1559Transaction.fromSerializedTx(txData);
     var deserializedTxParsed = deserializedTx.toJSON();
 
-    console.log('deserializedTx', deserializedTxParsed);
+    // console.log('deserializedTx', deserializedTxParsed);
 
     // Check `to`
     //      if malicious then revert
@@ -113,11 +117,11 @@ async function processTxs(req) {
             return rpcResp;
         }
         else {
-            return await submitRawSignature(req);
+            return await submitRawSignature(network, req);
         }
     }
     else {
-        return await submitRawSignature(req);
+        return await submitRawSignature(network, req);
     }
 
 
@@ -129,46 +133,46 @@ fastify
         reply.send(`
         <!DOCTYPE html>
         <html>
-
-        <head>
-          <meta charset="utf-8">
-          <title></title>
-          <meta name="author" content="">
-          <meta name="description" content="">
-          <meta name="viewport" content="width=device-width, initial-scale=1">
-        </head>
-
-        <body>
-
-          <div>
-            <pre>RPC: https://goerli-omnid-proxy.herokuapp.com/</pre>
-            <pre>Chain ID: 0x5</pre>
-          </div>
-
-        </body>
-
-        </html>
-
-        `)
+            <head>
+                <meta charset="utf-8">
+                <title>Omnid RPC Proxy</title>
+                <meta name="author" content="">
+                <meta name="description" content="">
+                <meta name="viewport" content="width=device-width, initial-scale=1">
+            </head>
+            <body>
+                <pre>Ethereum Mainnet RPC:          <code>https://omnid-proxy.herokuapp.com/mainnet</code></pre>
+                <pre>Ethereum Testnet Goerli RPC:   <code>https://omnid-proxy.herokuapp.com/goerli</code></pre>
+                <pre>Ethereum Testnet Ropsten RPC:  <code>https://omnid-proxy.herokuapp.com/ropsten</code></pre>
+                <pre>Ethereum Testnet Kovan RPC:    <code>https://omnid-proxy.herokuapp.com/kovan</code></pre>
+                <pre>Ethereum Testnet Rinkeby RPC:  <code>https://omnid-proxy.herokuapp.com/rinkeby</code></pre>
+            </body>
+        </html>`)
     })
 
 fastify
-    .post('/', async (req, reply) => {
+    .post('/:network', async (req, reply) => {
 
-        console.log('call', req.body);
+        let network = req.params?.network;
+        if (Object.keys(networkToRpc).includes(network) === true){ // valid chain
 
-        if (req.body['method'] == 'eth_sendRawTransaction') {
-            let resp = await processTxs(req)
-            reply.send(resp);
-        }
-        else if (req.body['method'] == 'eth_bypassSendRawTransaction') {
-            let resp = await submitRawSignature(req);
-            reply.send(resp);
+            if (req.body['method'] == 'eth_sendRawTransaction') {
+                let resp = await processTxs(network, req)
+                reply.send(resp);
+            }
+            else if (req.body['method'] == 'eth_bypassSendRawTransaction') {
+                let resp = await submitRawSignature(network, req);
+                reply.send(resp);
+            }
+            else {
+                let resp = await passthroughRPC(network, req);
+                reply.send(resp)
+            }
         }
         else {
-            let resp = await passthroughRPC(req);
-            reply.send(resp)
+            reply.send({error: `Invalid network '${network}', available ${Object.keys(networkToRpc).toString()}`})
         }
+
 
     })
 
