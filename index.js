@@ -6,17 +6,21 @@ const helmet = require('@fastify/helmet')
 const compress = require('@fastify/compress')
 const cors = require('@fastify/cors')
 
+const path = require('path')
+const fs = require('fs')
+
 const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
 const toBuffer = require('ethereumjs-util').toBuffer
 const { FeeMarketEIP1559Transaction } = require('@ethereumjs/tx')
 const { Convo } = require('@theconvospace/sdk')
+const { getAddress, isAddress } = require('@ethersproject/address')
 
 fastify.register(helmet, { global: true })
 fastify.register(compress, { global: true })
 fastify.register(cors, { global: true, origin: "*" })
 
-
-const { MAINNET_RPC_URL, ROPSTEN_RPC_URL, KOVAN_RPC_URL, RINKEBY_RPC_URL, GOERLI_RPC_URL, CONVO_API_KEY, ALCHEMY_API_KEY, CNVSEC_ID  } = process.env;
+const { TENDERLY_USER, TENDERLY_PROJECT, TENDERLY_ACCESS_KEY, POLYGON_RPC_URL, POLYGON_MUMBAI_RPC_URL, OPTIMISM_RPC_URL, OPTIMISM_TESTNET_RPC_URL, ARBITRUM_RPC_URL, ARBITRUM_TESTNET_RPC_URL, ARBITRUM_DEVNET_RPC_URL, MAINNET_RPC_URL, ROPSTEN_RPC_URL, KOVAN_RPC_URL, RINKEBY_RPC_URL, GOERLI_RPC_URL, CONVO_API_KEY, ALCHEMY_API_KEY, CNVSEC_ID  } = process.env;
+const SIMULATE_URL = `https://api.tenderly.co/api/v1/account/${TENDERLY_USER}/project/${TENDERLY_PROJECT}/simulate`
 
 const convo = new Convo(CONVO_API_KEY);
 const computeConfig = {
@@ -29,6 +33,13 @@ const networkToRpc = {
     'kovan': KOVAN_RPC_URL,
     'rinkeby': RINKEBY_RPC_URL,
     'goerli': GOERLI_RPC_URL,
+    'polygon': POLYGON_RPC_URL,
+    'polygon-mumbai': POLYGON_MUMBAI_RPC_URL,
+    'optimism': OPTIMISM_RPC_URL,
+    'optimism-testnet': OPTIMISM_TESTNET_RPC_URL,
+    'arbitrum': ARBITRUM_RPC_URL,
+    'arbitrum-testnet': ARBITRUM_TESTNET_RPC_URL,
+    'arbitrum-devnet': ARBITRUM_DEVNET_RPC_URL,
 }
 Object.freeze(networkToRpc);
 
@@ -48,18 +59,39 @@ function getMalRpcError(message, id=33){
 
 async function checkAddress(address){
     try {
-        let result = await convo.omnid.kits.isMalicious(address, computeConfig);
-        console.log('omnid.kits.isMalicious', address, result);
-        if (result?.alchemy && result.alchemy === true) return getMalRpcError(`Spam Contract Flagged by Alchemy`);
-        else if (result?.cryptoscamdb && result.cryptoscamdb === true) return getMalRpcError(`Contract Flagged by CryptoscamDB`);
-        else if (result?.etherscan && 'label' in result.etherscan) return getMalRpcError(`Address Flagged as ${result.etherscan.label} by Etherscan`);
-        else if (result?.mew && 'comment' in result.mew) return getMalRpcError(`Address Flagged by MyEtherWallet`);
-        else if (result?.sdn) return getMalRpcError(`Address Flagged by OFAC`);
-        else if (result?.tokenblacklist) return getMalRpcError(`Address Blacklisted by Stablecoin`);
+        if (isAddress(address)){
+            let result = await convo.omnid.kits.isMalicious(getAddress(address), computeConfig);
+            console.log('omnid.kits.isMalicious', getAddress(address), result);
+            if (result?.alchemy && result.alchemy === true) return getMalRpcError(`Spam Contract Flagged by Alchemy`);
+            else if (result?.cryptoscamdb && result.cryptoscamdb === true) return getMalRpcError(`Contract Flagged by CryptoscamDB`);
+            else if (result?.etherscan && 'label' in result.etherscan) return getMalRpcError(`Address Flagged as ${result.etherscan.label} by Etherscan`);
+            else if (result?.mew && 'comment' in result.mew) return getMalRpcError(`Address Flagged by MyEtherWallet`);
+            else if (result?.sdn) return getMalRpcError(`Address Flagged by OFAC`);
+            else if (result?.tokenblacklist) return getMalRpcError(`Address Blacklisted by Stablecoin`);
+            else return {isMalicious: false}
+        }
         else return {isMalicious: false}
 
     } catch (error) {
         return {isMalicious: false}
+    }
+}
+
+async function alchemySimulate(simData){
+    try {
+
+        let resp = await fetch(SIMULATE_URL, {
+            method: "POST",
+            body: JSON.stringify(simData),
+            headers: {
+                'X-Access-Key': TENDERLY_ACCESS_KEY,
+            }
+        }).then(r=>r.json());
+
+        return resp;
+
+    } catch (error) {
+        return error
     }
 }
 
@@ -105,49 +137,59 @@ async function processTxs(network, req) {
     // console.log('deserializedTx', deserializedTxParsed);
 
     // Check `to`
-    //      if malicious then revert
-    // Simulate `txn`
-    //      check for transfer, transferFrom, approve events
-    //      if greater than tolerance for token then revert.
-
+    //      if malicious then revert txn
     if (Boolean(deserializedTxParsed?.to) === true){
         let { isMalicious, rpcResp } = await checkAddress(deserializedTxParsed?.to);
         if (isMalicious === true){
             rpcResp.id = req.body.id;
-            return rpcResp;
+            return rpcResp; // Return if Mal intent found.
         }
-        else {
-            return await submitRawSignature(network, req);
-        }
-    }
-    else {
-        return await submitRawSignature(network, req);
     }
 
+    // Simulate `txn`
+    //      check for transfer, transferFrom, approve events
+    //          if addresses involved flagged by omnid, revert.
+    //          TODO: if token value greater than tolerance for token then revert.
+
+    let simData = {
+        "network_id": parseInt(deserializedTx.chainId.toString(10)),
+        "from": deserializedTx.getSenderAddress().toString('hex'),
+        "to":  deserializedTx.to.toString('hex'),
+        "input": deserializedTx.data.toString('hex'),
+        "gas": parseInt(deserializedTx.gasLimit.toString(10)),
+        "gas_price": deserializedTx.maxFeePerGas.add(deserializedTx.maxPriorityFeePerGas).toString(10),
+        "value": parseInt(deserializedTx.value.toString(10)),
+        "save_if_fails": true,
+        "save": false,
+        "simulation_type": "full"
+    }
+    let alResp = await alchemySimulate(simData);
+
+    if ('transaction_info' in alResp){
+        console.log('Sim Successful')
+        for (let index = 0; index < alResp.transaction_info.logs.length; index++) {
+            const logData = alResp.transaction_info.logs[index];
+
+            // Scan through the events emitted for malicious addresses.
+            if (logData.name === 'Approval' || logData.name === 'Transfer'){
+                let {isMaclicious, rpcResp} = await checkAddress(logData.inputs[1].value);
+                if (isMaclicious === true){
+                    return rpcResp;
+                }
+            }
+
+        }
+    }
+
+    // If nothing found, simply txn submit to main network.
+    return await submitRawSignature(network, req);
 
 }
 
 fastify
     .get('/', async (req, reply) => {
-        reply.type('text/html');
-        reply.send(`
-        <!DOCTYPE html>
-        <html>
-            <head>
-                <meta charset="utf-8">
-                <title>Omnid RPC Proxy</title>
-                <meta name="author" content="">
-                <meta name="description" content="">
-                <meta name="viewport" content="width=device-width, initial-scale=1">
-            </head>
-            <body>
-                <pre>Ethereum Mainnet RPC:          <code>https://omnid-proxy.herokuapp.com/mainnet</code></pre>
-                <pre>Ethereum Testnet Goerli RPC:   <code>https://omnid-proxy.herokuapp.com/goerli</code></pre>
-                <pre>Ethereum Testnet Ropsten RPC:  <code>https://omnid-proxy.herokuapp.com/ropsten</code></pre>
-                <pre>Ethereum Testnet Kovan RPC:    <code>https://omnid-proxy.herokuapp.com/kovan</code></pre>
-                <pre>Ethereum Testnet Rinkeby RPC:  <code>https://omnid-proxy.herokuapp.com/rinkeby</code></pre>
-            </body>
-        </html>`)
+        const stream = await fs.readFileSync(path.join(__dirname, 'public', 'index.html'))
+        reply.type('text/html').send(stream)
     })
 
 fastify
