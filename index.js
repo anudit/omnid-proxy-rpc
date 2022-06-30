@@ -45,7 +45,7 @@ Object.freeze(networkToRpc);
 
 function getMalRpcError(message, id=33){
     return {
-        isMaclicious: true,
+        isMalicious: true,
         rpcResp:{
             "id": id,
             "jsonrpc": "2.0",
@@ -62,6 +62,7 @@ async function checkAddress(address){
         if (isAddress(address)){
             let result = await convo.omnid.kits.isMalicious(getAddress(address), computeConfig);
             console.log('omnid.kits.isMalicious', getAddress(address), result);
+
             if (result?.alchemy && result.alchemy === true) return getMalRpcError(`Spam Contract Flagged by Alchemy`);
             else if (result?.cryptoscamdb && result.cryptoscamdb === true) return getMalRpcError(`Contract Flagged by CryptoscamDB`);
             else if (result?.etherscan && 'label' in result.etherscan) return getMalRpcError(`Address Flagged as ${result.etherscan.label} by Etherscan`);
@@ -95,8 +96,7 @@ async function alchemySimulate(simData){
     }
 }
 
-
-async function passthroughRPC(network, req) {
+async function passThroughRPC(network, req) {
     let data = await fetch(networkToRpc[network], {
         method: "POST",
         body: JSON.stringify(req.body),
@@ -108,23 +108,7 @@ async function passthroughRPC(network, req) {
         }
     }).then(e=>e.json());
 
-    // console.log('passthroughRPC/result', data);
-    return data;
-}
-
-async function submitRawSignature(network, req) {
-    let data = await fetch(networkToRpc[network], {
-        method: "POST",
-        body: JSON.stringify(req.body),
-        headers: {
-            'Content-Type': 'application/json',
-            "Accept": 'application/json',
-            "infura-source": 'metamask/internal',
-            "origin": 'chrome-extension://nkbihfbeogaeaoehlefnkodbefgpgknn'
-        }
-    }).then(e=>e.json());
-
-    // console.log('submitRawSignature/result', data);
+    // console.log('passThroughRPC/result', data);
     return data;
 }
 
@@ -139,17 +123,12 @@ async function processTxs(network, req) {
     // Check `to`
     //      if malicious then revert txn
     if (Boolean(deserializedTxParsed?.to) === true){
-        let { isMalicious, rpcResp } = await checkAddress(deserializedTxParsed?.to);
-        if (isMalicious === true){
+        let {isMalicious, rpcResp} = await checkAddress(deserializedTxParsed?.to);
+        if (isMalicious == true){
             rpcResp.id = req.body.id;
             return rpcResp; // Return if Mal intent found.
         }
     }
-
-    // Simulate `txn`
-    //      check for transfer, transferFrom, approve events
-    //          if addresses involved flagged by omnid, revert.
-    //          TODO: if token value greater than tolerance for token then revert.
 
     let simData = {
         "network_id": parseInt(deserializedTx.chainId.toString(10)),
@@ -172,17 +151,19 @@ async function processTxs(network, req) {
 
             // Scan through the events emitted for malicious addresses.
             if (logData.name === 'Approval' || logData.name === 'Transfer'){
-                let {isMaclicious, rpcResp} = await checkAddress(logData.inputs[1].value);
-                if (isMaclicious === true){
+                let {isMalicious, rpcResp} = await checkAddress(logData.inputs[1].value);
+                console.log('logcheck', getAddress(address), isMalicious, rpcResp);
+                if (isMalicious === true){
                     return rpcResp;
                 }
             }
+            // TODO: if token value greater than tolerance for token then revert.
 
         }
     }
 
     // If nothing found, simply txn submit to main network.
-    return await submitRawSignature(network, req);
+    return await passThroughRPC(network, req);
 
 }
 
@@ -199,15 +180,16 @@ fastify
         if (Object.keys(networkToRpc).includes(network) === true){ // valid chain
 
             if (req.body['method'] == 'eth_sendRawTransaction') {
+                console.log(req.body);
                 let resp = await processTxs(network, req)
                 reply.send(resp);
             }
             else if (req.body['method'] == 'eth_bypassSendRawTransaction') {
-                let resp = await submitRawSignature(network, req);
+                let resp = await passThroughRPC(network, req);
                 reply.send(resp);
             }
             else {
-                let resp = await passthroughRPC(network, req);
+                let resp = await passThroughRPC(network, req);
                 reply.send(resp)
             }
         }
