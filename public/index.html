@@ -6,24 +6,130 @@
         <meta name="author" content="Omnid">
         <meta name="description" content="Omnid RPC Proxy">
         <meta name="viewport" content="width=device-width, initial-scale=1">
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/github-markdown-css/5.1.0/github-markdown-dark.min.css" integrity="sha512-USRvpT7dJFA7mrRx4+esmy+2mYr8vlgmDLFpkNeVEd+D5CgQvULKPYVnDV97Ywfek+e//HdSA0NlaPe4oqkwfQ==" crossorigin="anonymous" referrerpolicy="no-referrer" />
         <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🛡️</text></svg>">
     </head>
-    <body style="font-family: system-ui;">
-        <h2>🛡️ Omnid RPC Proxy</h2>
-        <pre>Ethereum Mainnet RPC:          <code>https://omnid-proxy.herokuapp.com/mainnet</code></pre>
-        <pre>Ethereum Goerli Testnet RPC:   <code>https://omnid-proxy.herokuapp.com/goerli</code></pre>
-        <pre>Ethereum Rinkeby Testnet RPC:  <code>https://omnid-proxy.herokuapp.com/rinkeby</code> [⚠️ To be DEPRECATED]</pre>
-        <pre>Ethereum Ropsten Testnet RPC:  <code>https://omnid-proxy.herokuapp.com/ropsten</code> [⚠️ DEPRECATED]</pre>
-        <pre>Ethereum Kovan Testnet RPC:    <code>https://omnid-proxy.herokuapp.com/kovan</code> [⚠️ DEPRECATED]</pre>
+    <style>
+      .markdown-body {
+          box-sizing: border-box;
+          min-width: 200px;
+          max-width: 980px;
+          margin: 0 auto;
+          padding: 45px;
+        }
+
+        @media (max-width: 767px) {
+          .markdown-body {
+            padding: 15px;
+          }
+        }
+    </style>
+    <body style="font-family: system-ui;" class="markdown-body">
+        <h1>🛡️ Omnid RPC Proxy</h1>
+        <p>Omnid's RPC is an <a href="https://github.com/anudit/omnid-proxy-rpc" target='_blank'>open-source</a>, self-hostable RPC Proxy that scans the transactions for malicious/phishing addresses using static analysis and transaction simulation before you send them. If malicious activity is detected, the transaction is reverted before it ever sees the chain.</p>
+        <a href="https://docs.theconvo.space/docs/ConvoX/omnid-rpc" target="_blank">Docs</a>
         <br/>
-        <pre>Polygon Mainnet RPC:           <code>https://omnid-proxy.herokuapp.com/polygon</code></pre>
-        <pre>Polygon Mumbai Testnet RPC:    <code>https://omnid-proxy.herokuapp.com/polygon-mumbai</code></pre>
-        <br/>
-        <pre>Optimism Mainnet RPC:          <code>https://omnid-proxy.herokuapp.com/optimism</code></pre>
-        <pre>Optimism Kovan Testnet RPC:    <code>https://omnid-proxy.herokuapp.com/optimism-testnet</code></pre>
-        <br/>
-        <pre>Arbitrum Mainnet RPC:          <code>https://omnid-proxy.herokuapp.com/arbitrum</code></pre>
-        <pre>Arbitrum Rinkeby Testnet RPC:  <code>https://omnid-proxy.herokuapp.com/arbitrum-testnet</code></pre>
-        <pre>Arbitrum Goerli Devnet RPC:    <code>https://omnid-proxy.herokuapp.com/arbitrum-devnet</code></pre>
+        <h2>Supported Networks</h2>
+        <table width="100%">
+            <tr>
+                <th colspan="2">Ethereum</th>
+            </tr>
+            <tr>
+                <th>Network</th>
+                <th>RPC</th>
+            </tr>
+            <tr>
+                <td>Mainnet</td>
+                <td><code>https://omnid-proxy.herokuapp.com/mainnet</code></td>
+            </tr>
+            <tr>
+                <td>Goerli Testnet</td>
+                <td><code>https://omnid-proxy.herokuapp.com/goerli</code></td>
+            </tr>
+            <tr>
+                <td>Sepolia Testnet</td>
+                <td><code>https://omnid-proxy.herokuapp.com/sepolia</code></td>
+            </tr>
+            <tr>
+                <td>Rinkeby Testnet (⚠️ DEPRECATED)</td>
+                <td><code>https://omnid-proxy.herokuapp.com/rinkeby</code></td>
+            </tr>
+            <tr>
+                <td>Ropsten Testnet (⚠️ DEPRECATED)</td>
+                <td><code>https://omnid-proxy.herokuapp.com/ropsten</code></td>
+            </tr>
+            <tr>
+                <td>Kovan Testnet (⚠️ DEPRECATED)</td>
+                <td><code>https://omnid-proxy.herokuapp.com/kovan</code></td>
+            </tr>
+            <tr>
+              <th colspan="2">Flashbots</th>
+            </tr>
+            <tr>
+                <th>Network</th>
+                <th>RPC</th>
+            </tr>
+            <tr>
+                <td>Ethereum Mainnet</td>
+                <td><code>https://omnid-proxy.herokuapp.com/mainnet-flashbots</code></td>
+            </tr>
+            <tr>
+                <td>Ethereum Mainnet (Fast Mode)</td>
+                <td><code>https://omnid-proxy.herokuapp.com/mainnet-flashbots-fast</code></td>
+            </tr>
+            <tr>
+                <td>Ethereum Goerli</td>
+                <td><code>https://omnid-proxy.herokuapp.com/goerli-flashbots</code></td>
+            </tr>
+            <tr>
+              <th colspan="2">Polygon</th>
+            </tr>
+            <tr>
+                <th>Network</th>
+                <th>RPC</th>
+            </tr>
+            <tr>
+                <td>Mainnet</td>
+                <td><code>https://omnid-proxy.herokuapp.com/polygon</code></td>
+            </tr>
+            <tr>
+                <td>Mumbai Testnet</td>
+                <td><code>https://omnid-proxy.herokuapp.com/polygon-mumbai</code></td>
+            </tr>
+            <tr>
+              <th colspan="2">Optimism</th>
+            </tr>
+            <tr>
+                <th>Network</th>
+                <th>RPC</th>
+            </tr>
+            <tr>
+                <td>Mainnet</td>
+                <td><code>https://omnid-proxy.herokuapp.com/optimism</code></td>
+            </tr>
+            <tr>
+                <td>Kovan Testnet</td>
+                <td><code>https://omnid-proxy.herokuapp.com/optimism-testnet</code></td>
+            </tr>
+            <tr>
+              <th colspan="2">Arbitrum</th>
+            </tr>
+            <tr>
+                <th>Network</th>
+                <th>RPC</th>
+            </tr>
+            <tr>
+                <td>Mainnet</td>
+                <td><code>https://omnid-proxy.herokuapp.com/arbitrum</code></td>
+            </tr>
+            <tr>
+                <td>Rinkeby Testnet</td>
+                <td><code>https://omnid-proxy.herokuapp.com/arbitrum-testnet</code></td>
+            </tr>
+            <tr>
+                <td>Goerli Devnet</td>
+                <td><code>https://omnid-proxy.herokuapp.com/arbitrum-devnet</code></td>
+            </tr>
+        </table>
     </body>
 </html>
