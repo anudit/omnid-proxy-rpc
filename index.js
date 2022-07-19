@@ -14,6 +14,7 @@ const toBuffer = require('ethereumjs-util').toBuffer
 const { FeeMarketEIP1559Transaction } = require('@ethereumjs/tx')
 const { Convo } = require('@theconvospace/sdk')
 const { getAddress, isAddress } = require('@ethersproject/address')
+const checkForPhishing = require('eth-phishing-detect')
 
 fastify.register(helmet, { global: true })
 fastify.register(compress, { global: true })
@@ -174,22 +175,32 @@ fastify.get('/', async (req, reply) => {
     })
 
 fastify.post('/:network', async (req, reply) => {
+        let hostname = new URL(req.hostname).hostname;
+        let isPhishing = checkForPhishing(hostname);
 
-        let network = req.params?.network;
-        if (Object.keys(networkToRpc).includes(network) === true){ // valid chain
-            if (req.body['method'] == 'eth_sendRawTransaction') {
-                // console.log(req.body);
-                let resp = await processTxs(network, req)
-                reply.send(resp);
+        if (!isPhishing){
+
+            let network = req.params?.network;
+            if (Object.keys(networkToRpc).includes(network) === true){ // valid chain
+                if (req.body['method'] == 'eth_sendRawTransaction') {
+                    // console.log(req.body);
+                    let resp = await processTxs(network, req)
+                    reply.send(resp);
+                }
+                else {
+                    let resp = await sendToRpc(network, req);
+                    reply.send(resp)
+                }
             }
             else {
-                let resp = await sendToRpc(network, req);
-                reply.send(resp)
+                reply.send({error: `Invalid network '${network}', available ${Object.keys(networkToRpc).toString()}`})
             }
+
         }
         else {
-            reply.send({error: `Invalid network '${network}', available ${Object.keys(networkToRpc).toString()}`})
+            reply.send(getMalRpcError(`🚨 Phishing detector for the site ${hostname} has been triggered.`))
         }
+
 
     })
 
