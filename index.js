@@ -55,7 +55,7 @@ function getMalRpcError(message){
             "id": 420,
             "jsonrpc": "2.0",
             "error": {
-                "code": -32003,
+                "code": -32003, // https://eips.ethereum.org/EIPS/eip-1474#error-codes
                 "message": message
             }
         }
@@ -176,7 +176,7 @@ fastify.get('/', async (req, reply) => {
 
 fastify.post('/:network', async (req, reply) => {
         let hostname = new URL(req.hostname).hostname;
-        let isPhishing = checkForPhishing(hostname);
+        let isPhishing = checkForPhishing(hostname); // https://metamask.github.io/eth-phishing-detect/
 
         if (!isPhishing){
 
