@@ -45,6 +45,7 @@ const networkToRpc = {
     'arbitrum': ARBITRUM_RPC_URL,
     'arbitrum-testnet': ARBITRUM_TESTNET_RPC_URL,
     'arbitrum-devnet': ARBITRUM_DEVNET_RPC_URL,
+    'manual': 1,
 }
 Object.freeze(networkToRpc);
 
@@ -102,19 +103,27 @@ async function alchemySimulate(simData){
 }
 
 async function sendToRpc(network, req) {
-    let data = await fetch(networkToRpc[network], {
-        method: "POST",
-        body: JSON.stringify(req.body),
-        headers: {
-            'Content-Type': 'application/json',
-            "Accept": 'application/json',
-            "infura-source": 'metamask/internal',
-            "origin": 'chrome-extension://nkbihfbeogaeaoehlefnkodbefgpgknn'
-        }
-    }).then(e=>e.json());
+    try {
+        let rpcUrl = network === 'manual' ? req.query?.rpcUrl : networkToRpc[network];
+        console.log('using rpcurl', rpcUrl);
+        let data = await fetch(rpcUrl, {
+            method: "POST",
+            body: JSON.stringify(req.body),
+            headers: {
+                'Content-Type': 'application/json',
+                "Accept": 'application/json',
+                "infura-source": 'metamask/internal',                           // for infura based rpc urls.
+                "origin": 'chrome-extension://nkbihfbeogaeaoehlefnkodbefgpgknn' // for infura based rpc urls.
+            }
+        }).then(e=>e.json());
 
-    // console.log('sendToRpc/result', data);
-    return data;
+        // console.log('sendToRpc/result', data);
+        return data;
+
+    } catch (error) {
+        let {rpcResp} = getMalRpcError(error);
+        return rpcResp;
+    }
 }
 
 async function processTxs(network, req) {
@@ -160,6 +169,7 @@ async function processTxs(network, req) {
                 if (isMalicious === true) return rpcResp;
             }
             // TODO: if token value greater than tolerance for token then revert.
+            // TODO: Check if interacting with unverified contract.
 
         }
     }
@@ -180,7 +190,7 @@ fastify.post('/:network', async (req, reply) => {
 
         if (!isPhishing){
 
-            let network = req.params?.network;
+            let {network} = req.params;
             if (Object.keys(networkToRpc).includes(network) === true){ // valid chain
                 if (req.body['method'] == 'eth_sendRawTransaction') {
                     // console.log(req.body);
@@ -193,7 +203,7 @@ fastify.post('/:network', async (req, reply) => {
                 }
             }
             else {
-                reply.send({error: `Invalid network '${network}', available ${Object.keys(networkToRpc).toString()}`})
+                reply.send({error: `Invalid network '${network}', available networks are ${Object.keys(networkToRpc).join(', ')}`})
             }
 
         }
@@ -206,7 +216,7 @@ fastify.post('/:network', async (req, reply) => {
 
 fastify.listen({ port: process.env.PORT || 8545, host: "0.0.0.0" }, (err, address) => {
     if (err) throw err
-    console.log(`Server listening on ${address}`);
+    console.log(`Server listening on ${address} 🚀`);
 })
 
 // checkAddress('').then(console.log)
