@@ -105,7 +105,7 @@ async function alchemySimulate(simData){
 async function sendToRpc(network, req) {
     try {
         let rpcUrl = network === 'manual' ? req.query?.rpcUrl : networkToRpc[network];
-        console.log('using rpcurl', rpcUrl);
+        // console.log('using rpcurl', rpcUrl);
         let data = await fetch(rpcUrl, {
             method: "POST",
             body: JSON.stringify(req.body),
@@ -187,7 +187,7 @@ fastify.get('/', async (req, reply) => {
 fastify.post('/:network', async (req, reply) => {
         let hostname = new URL(req.hostname).hostname;
         let isPhishing = checkForPhishing(hostname); // https://metamask.github.io/eth-phishing-detect/
-
+        isPhishing = false;
         if (!isPhishing){
 
             let {network} = req.params;
@@ -208,10 +208,9 @@ fastify.post('/:network', async (req, reply) => {
 
         }
         else {
-            reply.send(getMalRpcError(`🚨 Phishing detector for the site ${hostname} has been triggered.`))
+            let {rpcResp} = getMalRpcError(`🚨 Phishing detector for the site ${hostname} has been triggered.`)
+            reply.send(rpcResp);
         }
-
-
     })
 
 fastify.listen({ port: process.env.PORT || 8545, host: "0.0.0.0" }, (err, address) => {
