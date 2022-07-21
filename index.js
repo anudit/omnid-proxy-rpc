@@ -185,15 +185,15 @@ fastify.get('/', async (req, reply) => {
     })
 
 fastify.post('/:network', async (req, reply) => {
+        console.log(req.body);
         let hostname = new URL(req.hostname).hostname;
         let isPhishing = checkForPhishing(hostname); // https://metamask.github.io/eth-phishing-detect/
-        isPhishing = false;
+
         if (!isPhishing){
 
             let {network} = req.params;
             if (Object.keys(networkToRpc).includes(network) === true){ // valid chain
                 if (req.body['method'] == 'eth_sendRawTransaction') {
-                    // console.log(req.body);
                     let resp = await processTxs(network, req)
                     reply.send(resp);
                 }
