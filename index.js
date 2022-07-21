@@ -105,7 +105,7 @@ async function alchemySimulate(simData){
 async function sendToRpc(network, req) {
     try {
         let rpcUrl = network === 'manual' ? req.query?.rpcUrl : networkToRpc[network];
-        // console.log('using rpcurl', rpcUrl);
+        console.log('using rpcurl', rpcUrl);
         let data = await fetch(rpcUrl, {
             method: "POST",
             body: JSON.stringify(req.body),
@@ -117,7 +117,7 @@ async function sendToRpc(network, req) {
             }
         }).then(e=>e.json());
 
-        // console.log('sendToRpc/result', data);
+        console.log('sendToRpc/result', data);
         return data;
 
     } catch (error) {
@@ -185,11 +185,13 @@ fastify.get('/', async (req, reply) => {
     })
 
 fastify.post('/:network', async (req, reply) => {
-        console.log(req.body);
+    console.log(req.hostname, req.body);
         let hostname = new URL(req.hostname).hostname;
         let isPhishing = checkForPhishing(hostname); // https://metamask.github.io/eth-phishing-detect/
 
         if (!isPhishing){
+
+            console.log('got network', network);
 
             let {network} = req.params;
             if (Object.keys(networkToRpc).includes(network) === true){ // valid chain
