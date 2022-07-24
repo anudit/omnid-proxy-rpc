@@ -144,6 +144,7 @@ async function processTxs(network, req) {
         }
     }
 
+    // Simulate Txn
     let alResp = await alchemySimulate({
         "network_id": parseInt(deserializedTx.chainId.toString(10)),
         "from": deserializedTx.getSenderAddress().toString('hex'),
@@ -169,9 +170,17 @@ async function processTxs(network, req) {
                 if (isMalicious === true) return rpcResp;
             }
             // TODO: if token value greater than tolerance for token then revert.
-            // TODO: Check if interacting with unverified contract.
 
         }
+    }
+
+    // test blockUnverifiedContracts
+    if (network != 'manual' && req?.query?.blockUnverifiedContracts === true){
+        let verificationRes = await fetch(`https://sourcify.dev/server/check-all-by-addresses?addresses=${deserializedTxParsed?.to}&chainIds=1,4,11155111,137,80001,10,42161,421611`).then(r=>r.json())[0];
+        if (Object.keys(e).includes('status')){ // mean unverified.
+            let {rpcResp} = getMalRpcError('The contract is unverified');
+            return rpcResp;
+        };
     }
 
     // If nothing found, simply txn submit to main network.
@@ -186,6 +195,7 @@ fastify.get('/', async (req, reply) => {
 
 fastify.post('/:network', async (req, reply) => {
         let { hostname } =  req;
+
         let isPhishing = checkForPhishing(hostname); // https://metamask.github.io/eth-phishing-detect/
 
         if (!isPhishing){

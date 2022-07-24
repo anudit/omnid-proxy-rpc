@@ -17,12 +17,12 @@
     "@fastify/compress": "^6.1.0",
     "@fastify/cors": "^8.0.0",
     "@fastify/helmet": "^9.1.0",
-    "@fastify/static": "^6.4.0",
-    "@theconvospace/sdk": "^0.5.13",
+    "@fastify/static": "^6.4.1",
+    "@theconvospace/sdk": "^0.5.14",
     "dotenv": "^16.0.1",
     "eth-phishing-detect": "^1.2.0",
     "ethereumjs-util": "^7.1.5",
-    "fastify": "^4.2.1",
+    "fastify": "^4.3.0",
     "node-fetch": "^3.2.9"
   }
 }
