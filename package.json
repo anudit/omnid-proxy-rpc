@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "dev": "tsup src/index.ts --format cjs --outDir dist --dts --legacy-output --clean --keepNames --watch",
-    "build": "tsup src/index.ts --format cjs --outDir dist --dts  --legacy-output --clean --keepNames",
+    "build": "tsup src/index.ts --format cjs --outDir dist --dts  --legacy-output --clean --minify --keepNames",
     "start": "node ./dist/index.js",
     "startdev": "nodemon ./dist/index.js",
     "test": "echo \"Error: no test specified\" && exit 1"

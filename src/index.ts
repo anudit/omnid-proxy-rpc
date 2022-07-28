@@ -24,16 +24,23 @@ server.register(helmet, { global: true })
 server.register(compress, { global: true })
 server.register(cors, { origin: "*" })
 
-const { ETHERSCAN_API_KEY, POLYGONSCAN_API_KEY, OPTIMISMSCAN_API_KEY, MAINNET_FLASHBOTS_RPC_URL, GOERLI_FLASHBOTS_RPC_URL, MAINNET_FLASHBOTS_FAST_RPC_URL, TENDERLY_USER, TENDERLY_PROJECT, TENDERLY_ACCESS_KEY, SEPOLIA_RPC_URL, POLYGON_RPC_URL, POLYGON_MUMBAI_RPC_URL, OPTIMISM_RPC_URL, OPTIMISM_TESTNET_RPC_URL, ARBITRUM_RPC_URL, ARBITRUM_TESTNET_RPC_URL, MAINNET_RPC_URL, ROPSTEN_RPC_URL, KOVAN_RPC_URL, RINKEBY_RPC_URL, GOERLI_RPC_URL, CONVO_API_KEY, ALCHEMY_API_KEY, CNVSEC_ID  } = process.env;
-const SIMULATE_URL = `https://api.tenderly.co/api/v1/account/${TENDERLY_USER}/project/${TENDERLY_PROJECT}/simulate`
+const { ETHERSCAN_API_KEY, POLYGONSCAN_API_KEY, OPTIMISMSCAN_API_KEY, MAINNET_FLASHBOTS_RPC_URL, GOERLI_FLASHBOTS_RPC_URL, MAINNET_FLASHBOTS_FAST_RPC_URL, TENDERLY_USER, TENDERLY_PROJECT, TENDERLY_ACCESS_KEY, SEPOLIA_RPC_URL, POLYGON_RPC_URL, POLYGON_TESTNET_RPC_URL, OPTIMISM_RPC_URL, OPTIMISM_TESTNET_RPC_URL, ARBITRUM_RPC_URL, ARBITRUM_TESTNET_RPC_URL, MAINNET_RPC_URL, ROPSTEN_RPC_URL, KOVAN_RPC_URL, RINKEBY_RPC_URL, GOERLI_RPC_URL, CONVO_API_KEY, ALCHEMY_API_KEY, CNVSEC_ID  } = process.env;
+
+const getEnv = (envVar: string) => {
+    const resp = process.env[envVar];
+    if(resp === undefined) throw new Error(`'${envVar}' Environment Variable is Not Defined`);
+    else return resp as string;
+}
+
+const SIMULATE_URL = `https://api.tenderly.co/api/v1/account/${getEnv('TENDERLY_USER')}/project/${getEnv('TENDERLY_PROJECT')}/simulate`
 
 const convo = new Convo(CONVO_API_KEY as string);
 const computeConfig = {
-    alchemyApiKey: ALCHEMY_API_KEY  as string,
-    CNVSEC_ID: CNVSEC_ID  as string,
-    etherscanApiKey: ETHERSCAN_API_KEY as string,
-    polygonscanApiKey: POLYGONSCAN_API_KEY  as string,
-    optimismscanApiKey: OPTIMISMSCAN_API_KEY  as string,
+    alchemyApiKey: getEnv('ALCHEMY_API_KEY'),
+    CNVSEC_ID: getEnv('CNVSEC_ID'),
+    etherscanApiKey: getEnv('ETHERSCAN_API_KEY'),
+    polygonscanApiKey: getEnv('POLYGONSCAN_API_KEY'),
+    optimismscanApiKey: getEnv('OPTIMISMSCAN_API_KEY'),
     polygonMainnetRpc: '',
     etherumMainnetRpc: '',
     avalancheMainnetRpc: '',
@@ -44,21 +51,21 @@ const computeConfig = {
     DEBUG: false,
 };
 const networkToRpc: Dictionary<string> = {
-    'mainnet': MAINNET_RPC_URL as string,
-    'mainnet-flashbots': MAINNET_FLASHBOTS_RPC_URL as string,
-    'mainnet-flashbots-fast': MAINNET_FLASHBOTS_FAST_RPC_URL as string,
-    'ropsten': ROPSTEN_RPC_URL as string,
-    'kovan': KOVAN_RPC_URL as string,
-    'rinkeby': RINKEBY_RPC_URL as string,
-    'goerli': GOERLI_RPC_URL as string,
-    'sepolia': SEPOLIA_RPC_URL as string,
-    'goerli-flashbots': GOERLI_FLASHBOTS_RPC_URL as string,
-    'polygon': POLYGON_RPC_URL as string,
-    'polygon-mumbai': POLYGON_MUMBAI_RPC_URL as string,
-    'optimism': OPTIMISM_RPC_URL as string,
-    'optimism-testnet': OPTIMISM_TESTNET_RPC_URL as string,
-    'arbitrum': ARBITRUM_RPC_URL as string,
-    'arbitrum-testnet': ARBITRUM_TESTNET_RPC_URL as string,
+    'mainnet': getEnv('MAINNET_RPC_URL'),
+    'mainnet-flashbots': getEnv('MAINNET_FLASHBOTS_RPC_URL'),
+    'mainnet-flashbots-fast': getEnv('MAINNET_FLASHBOTS_FAST_RPC_URL'),
+    'ropsten': getEnv('ROPSTEN_RPC_URL'),
+    'kovan': getEnv('KOVAN_RPC_URL'),
+    'rinkeby': getEnv('RINKEBY_RPC_URL'),
+    'goerli': getEnv('GOERLI_RPC_URL'),
+    'sepolia': getEnv('SEPOLIA_RPC_URL'),
+    'goerli-flashbots': getEnv('GOERLI_FLASHBOTS_RPC_URL'),
+    'polygon': getEnv('POLYGON_RPC_URL'),
+    'polygon-testnet': getEnv('POLYGON_TESTNET_RPC_URL'),
+    'optimism': getEnv('OPTIMISM_RPC_URL'),
+    'optimism-testnet': getEnv('OPTIMISM_TESTNET_RPC_URL'),
+    'arbitrum': getEnv('ARBITRUM_RPC_URL'),
+    'arbitrum-testnet': getEnv('ARBITRUM_TESTNET_RPC_URL'),
     'manual': '1',
 }
 Object.freeze(networkToRpc);
@@ -230,6 +237,7 @@ async function processTxs(network: supportedNetworkIds, req: FastifyRequest) {
 
 server.get('/', async (req: FastifyRequest, reply: FastifyReply) => {
         const stream = await fs.readFileSync(path.join(__dirname, '../public/', 'index.html'))
+        reply.header("Content-Security-Policy", "default-src *; style-src 'self' 'unsafe-inline' cdnjs.cloudflare.com; script-src 'self' 'unsafe-inline'; img-src data:;");
         reply.type('text/html').send(stream)
     })
 
@@ -263,7 +271,7 @@ server.post<{Querystring: IQuerystring, Body: JsonRpcReq, Params: IRouteParams}>
         }
     })
 
-server.listen({ port: parseInt(process.env.PORT as string) || 8545, host: "0.0.0.0" }, (err, address)=>{
+server.listen({ port: parseInt(getEnv('PORT')) || 8545, host: "0.0.0.0" }, (err, address)=>{
     if (!err){
         console.log('🚀 Server is listening on', address);
     }
