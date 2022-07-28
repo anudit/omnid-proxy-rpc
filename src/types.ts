@@ -25,7 +25,6 @@ export type supportedNetworkIds = "mainnet"
 | "optimism-testnet"
 | "arbitrum"
 | "arbitrum-testnet"
-| "arbitrum-devnet"
 | "manual" ;
 
 export interface Dictionary<T> {
