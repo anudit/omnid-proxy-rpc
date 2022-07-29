@@ -19,12 +19,9 @@ import { getAddress, isAddress } from '@ethersproject/address'
 const checkForPhishing = require('eth-phishing-detect');
 import { AlchemySimulationReq, AlchemySimulationResp, Dictionary, IQuerystring, IRouteParams, JsonRpcReq, RpcResp, SourifyResp, supportedNetworkIds } from './types';
 
-
 server.register(helmet, { global: true })
 server.register(compress, { global: true })
 server.register(cors, { origin: "*" })
-
-const { ETHERSCAN_API_KEY, POLYGONSCAN_API_KEY, OPTIMISMSCAN_API_KEY, MAINNET_FLASHBOTS_RPC_URL, GOERLI_FLASHBOTS_RPC_URL, MAINNET_FLASHBOTS_FAST_RPC_URL, TENDERLY_USER, TENDERLY_PROJECT, TENDERLY_ACCESS_KEY, SEPOLIA_RPC_URL, POLYGON_RPC_URL, POLYGON_TESTNET_RPC_URL, OPTIMISM_RPC_URL, OPTIMISM_TESTNET_RPC_URL, ARBITRUM_RPC_URL, ARBITRUM_TESTNET_RPC_URL, MAINNET_RPC_URL, ROPSTEN_RPC_URL, KOVAN_RPC_URL, RINKEBY_RPC_URL, GOERLI_RPC_URL, CONVO_API_KEY, ALCHEMY_API_KEY, CNVSEC_ID  } = process.env;
 
 const getEnv = (envVar: string) => {
     const resp = process.env[envVar];
@@ -34,7 +31,7 @@ const getEnv = (envVar: string) => {
 
 const SIMULATE_URL = `https://api.tenderly.co/api/v1/account/${getEnv('TENDERLY_USER')}/project/${getEnv('TENDERLY_PROJECT')}/simulate`
 
-const convo = new Convo(CONVO_API_KEY as string);
+const convo = new Convo(getEnv('CONVO_API_KEY'));
 const computeConfig = {
     alchemyApiKey: getEnv('ALCHEMY_API_KEY'),
     CNVSEC_ID: getEnv('CNVSEC_ID'),
@@ -114,7 +111,7 @@ async function alchemySimulate(simData: AlchemySimulationReq): Promise<AlchemySi
             method: "POST",
             body: JSON.stringify(simData),
             headers: {
-                'X-Access-Key': TENDERLY_ACCESS_KEY as string,
+                'X-Access-Key': getEnv('TENDERLY_ACCESS_KEY'),
             }
         }).then(r=>r.json());
 
