@@ -1,5 +1,5 @@
 'strict'
-require('dotenv').config({ path: '.env' })
+
 import fastify, { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 const server: FastifyInstance = fastify({ logger: false })
 
