@@ -1,1 +1,2 @@
 RUST_SKIP_BUILD=1
+VERSION=nightly
