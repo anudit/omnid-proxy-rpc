@@ -1,15 +1,14 @@
 'strict'
-
 require('dotenv').config({ path: '.env' })
-import fastify, { FastifyInstance , FastifyError, FastifyRequest, FastifyReply } from "fastify";
+import fastify, { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 const server: FastifyInstance = fastify({ logger: false })
 
 import helmet from '@fastify/helmet'
 import compress from '@fastify/compress'
 import cors from '@fastify/cors'
 
+import { readFileSync } from 'fs';
 import path from 'path'
-import fs from 'fs'
 
 import fetch from 'cross-fetch';
 const toBuffer = require('ethereumjs-util').toBuffer
@@ -17,17 +16,14 @@ import { FeeMarketEIP1559Transaction } from '@ethereumjs/tx'
 import { Convo } from '@theconvospace/sdk'
 import { getAddress, isAddress } from '@ethersproject/address'
 const checkForPhishing = require('eth-phishing-detect');
-import { AlchemySimulationReq, AlchemySimulationResp, Dictionary, IQuerystring, IRouteParams, JsonRpcReq, RpcResp, SourifyResp, supportedNetworkIds } from './types';
+import { AlchemySimulationReq, AlchemySimulationResp, Dictionary, IQuerystring, IRouteParams, JsonRpcReq, RpcResp, slitherSupported, SourifyResp, supportedNetworkIds } from './types';
+import { testrun, testUsingSlither } from "./lifejackets/slither";
+import { getEnv } from "./utils";
 
 server.register(helmet, { global: true })
 server.register(compress, { global: true })
 server.register(cors, { origin: "*" })
 
-const getEnv = (envVar: string) => {
-    const resp = process.env[envVar];
-    if(resp === undefined) throw new Error(`'${envVar}' Environment Variable is Not Defined`);
-    else return resp as string;
-}
 
 const SIMULATE_URL = `https://api.tenderly.co/api/v1/account/${getEnv('TENDERLY_USER')}/project/${getEnv('TENDERLY_PROJECT')}/simulate`
 
@@ -225,48 +221,72 @@ async function processTxs(network: supportedNetworkIds, req: FastifyRequest) {
 
     }
 
-    // TODO: enableScanners
+    // test enableScanners
+    if (network in ['mainnet', 'polygon', 'polygon-testnet'] && query?.enableScanners !== undefined && deserializedTxParsed.to !== undefined){
+        let networkId = network as slitherSupported;
+        let scanners = query.enableScanners.split(',');
+        for (let index = 0; index < scanners.length; index++) {
+            const scanner = scanners[index];
+            // TODO: support mythril
+            if (scanner in ['slither']){
+                let slTest = await testUsingSlither(networkId, deserializedTxParsed.to);
+                if (slTest.results.length>0){
+                    return await getMalRpcError('Slither detected possible attack vectors');
+                }
+            }
+        }
+    }
 
-    // If nothing found, simply txn submit to main network.
+
+    // If nothing found, simply submit txn to network.
     return await sendToRpc(network, req);
 
 }
 
 server.get('/', async (req: FastifyRequest, reply: FastifyReply) => {
-        const stream = await fs.readFileSync(path.join(__dirname, '../public/', 'index.html'))
+        const stream = await readFileSync(path.join(__dirname, '../public/', 'index.html'))
         reply.header("Content-Security-Policy", "default-src *; style-src 'self' 'unsafe-inline' cdnjs.cloudflare.com; script-src 'self' 'unsafe-inline'; img-src data:;");
         reply.type('text/html').send(stream)
     })
 
-server.post<{Querystring: IQuerystring, Body: JsonRpcReq, Params: IRouteParams}>('/:network', async (req: FastifyRequest, reply: FastifyReply) => {
-        let { hostname } =  req;
-        const body = req.body as JsonRpcReq;
+server.post('/lifejacket/slither', async (req: FastifyRequest, reply: FastifyReply) => {
+    const {network, address} = req.body as {network: string, address: string};
+    if(network != undefined && address != undefined && isAddress(address)){
+        let sr = await testUsingSlither(network as slitherSupported, address);
+        return reply.send(sr)
+    }
+    else return reply.send({success: false, error: "Invalid body params, network or address"})
+});
 
-        let isPhishing = checkForPhishing(hostname); // https://metamask.github.io/eth-phishing-detect/
+server.post('/:network', async (req: FastifyRequest, reply: FastifyReply) => {
+    let { hostname } =  req;
+    const body = req.body as JsonRpcReq;
 
-        if (!isPhishing){
-            const {network} = req.params as IRouteParams;
+    let isPhishing = checkForPhishing(hostname); // https://metamask.github.io/eth-phishing-detect/
 
-            if (network && Object.keys(networkToRpc).includes(network) === true){ // valid chain
-                if (body['method'] == 'eth_sendRawTransaction') {
-                    let resp = await processTxs(network, req)
-                    reply.send(resp);
-                }
-                else {
-                    let resp = await sendToRpc(network, req);
-                    reply.send(resp)
-                }
+    if (!isPhishing){
+        const {network} = req.params as IRouteParams;
+
+        if (network && Object.keys(networkToRpc).includes(network) === true){ // valid chain
+            if (body['method'] == 'eth_sendRawTransaction') {
+                let resp = await processTxs(network, req)
+                reply.send(resp);
             }
             else {
-                reply.send({error: `Invalid network '${network}', available networks are ${Object.keys(networkToRpc).join(', ')}`})
+                let resp = await sendToRpc(network, req);
+                reply.send(resp)
             }
-
         }
         else {
-            let {rpcResp} = getMalRpcError(`🚨 Phishing detector for the site ${hostname} has been triggered.`)
-            reply.send(rpcResp);
+            reply.send({error: `Invalid network '${network}', available networks are ${Object.keys(networkToRpc).join(', ')}`})
         }
-    })
+
+    }
+    else {
+        let {rpcResp} = getMalRpcError(`🚨 Phishing detector for the site ${hostname} has been triggered.`)
+        reply.send(rpcResp);
+    }
+})
 
 server.listen({ port: parseInt(getEnv('PORT')) || 8545, host: "0.0.0.0" }, (err, address)=>{
     if (!err){
