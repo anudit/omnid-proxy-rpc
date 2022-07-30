@@ -89,27 +89,38 @@ export interface EtherscanVerificationResp {
     }>
 }
 
-type Detectors = Array<{
+export type SlitherDetectors = Array<{
     impact: string;
     confidence: string;
     check: string;
 }>
 
-export interface SlitherResult {
+export interface SlitherOutput {
     success: boolean,
     error: string,
     results: {
-        detectors?: Detectors
+        detectors?: SlitherDetectors
     }
 }
+export type lifejacketSupportedNetwork = 'mainnet' | 'polygon' | 'polygon-testnet';
 
-export interface SlitherTestResult {
+export type MythrilIssues = Array<{
+    severity: "Low" | "Medium" | "High",
+    title: string;
+    description: string;
+}>
+
+export interface MythrilOutput {
+    error: null | string,
+    issues: MythrilIssues
+}
+
+export interface TestResult<T> {
     success: boolean,
     error: string,
     cached?: boolean,
-    results:  Detectors
+    results:  T
 }
-export type slitherSupported = 'mainnet' | 'polygon' | 'polygon-testnet';
 
 export type supportedEnvVars = "MAINNET_RPC_URL"
 | "SEPOLIA_RPC_URL"

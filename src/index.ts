@@ -16,9 +16,10 @@ import { FeeMarketEIP1559Transaction } from '@ethereumjs/tx'
 import { Convo } from '@theconvospace/sdk'
 import { getAddress, isAddress } from '@ethersproject/address'
 const checkForPhishing = require('eth-phishing-detect');
-import { AlchemySimulationReq, AlchemySimulationResp, Dictionary, IQuerystring, IRouteParams, JsonRpcReq, RpcResp, slitherSupported, SourifyResp, supportedNetworkIds } from './types';
+import { AlchemySimulationReq, AlchemySimulationResp, Dictionary, IQuerystring, IRouteParams, JsonRpcReq, RpcResp, lifejacketSupportedNetwork, SourifyResp, supportedNetworkIds } from './types';
 import { testrun, testUsingSlither } from "./lifejackets/slither";
 import { getEnv } from "./utils";
+import { testUsingMythril } from "./lifejackets/mythril";
 
 server.register(helmet, { global: true })
 server.register(compress, { global: true })
@@ -223,20 +224,24 @@ async function processTxs(network: supportedNetworkIds, req: FastifyRequest) {
 
     // test enableScanners
     if (network in ['mainnet', 'polygon', 'polygon-testnet'] && query?.enableScanners !== undefined && deserializedTxParsed.to !== undefined){
-        let networkId = network as slitherSupported;
+        let networkId = network as lifejacketSupportedNetwork;
         let scanners = query.enableScanners.split(',');
         for (let index = 0; index < scanners.length; index++) {
             const scanner = scanners[index];
-            // TODO: support mythril
-            if (scanner in ['slither']){
+            if (scanner === 'slither'){
                 let slTest = await testUsingSlither(networkId, deserializedTxParsed.to);
                 if (slTest.results.length>0){
-                    return await getMalRpcError('Slither detected possible attack vectors');
+                    return getMalRpcError('Slither detected possible attack vectors');
+                }
+            }
+            else if (scanner === 'mythril'){
+                let slTest = await testUsingMythril(networkId, deserializedTxParsed.to);
+                if (slTest.results.length>0){
+                    return getMalRpcError('Slither detected possible attack vectors');
                 }
             }
         }
     }
-
 
     // If nothing found, simply submit txn to network.
     return await sendToRpc(network, req);
@@ -252,7 +257,16 @@ server.get('/', async (req: FastifyRequest, reply: FastifyReply) => {
 server.post('/lifejacket/slither', async (req: FastifyRequest, reply: FastifyReply) => {
     const {network, address} = req.body as {network: string, address: string};
     if(network != undefined && address != undefined && isAddress(address)){
-        let sr = await testUsingSlither(network as slitherSupported, address);
+        let sr = await testUsingSlither(network as lifejacketSupportedNetwork, address);
+        return reply.send(sr)
+    }
+    else return reply.send({success: false, error: "Invalid body params, network or address"})
+});
+
+server.post('/lifejacket/mythril', async (req: FastifyRequest, reply: FastifyReply) => {
+    const {network, address} = req.body as {network: string, address: string};
+    if(network != undefined && address != undefined && isAddress(address)){
+        let sr = await testUsingMythril(network as lifejacketSupportedNetwork, address);
         return reply.send(sr)
     }
     else return reply.send({success: false, error: "Invalid body params, network or address"})
