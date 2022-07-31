@@ -148,4 +148,4 @@ export type supportedEnvVars = "MAINNET_RPC_URL"
 | "OPTIMISMSCAN_API_KEY"
 | "PORT"
 
-export type SupportedJackets = "mythril" | "slither" | "manticore";
+export type SupportedJackets = "mythril" | "slither";

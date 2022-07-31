@@ -19,7 +19,6 @@ const checkForPhishing = require('eth-phishing-detect');
 import { AlchemySimulationReq, AlchemySimulationResp, Dictionary, IQuerystring, IRouteParams, JsonRpcReq, RpcResp, lifejacketSupportedNetwork, SourifyResp, supportedNetworkIds, SupportedJackets } from './types';
 import { getEnv } from "./utils";
 import { testUsingMythril } from "./lifejackets/mythril";
-import { testUsingManticore } from "./lifejackets/manticore";
 import { testUsingSlither } from "./lifejackets/slither";
 
 server.register(helmet, { global: true })
@@ -256,7 +255,7 @@ server.get('/', async (req: FastifyRequest, reply: FastifyReply) => {
 })
 
 server.post('/lifejacket/:jacket', async (req: FastifyRequest, reply: FastifyReply) => {
-    const supportedJackets : Array<SupportedJackets> = ['slither', 'mythril', 'manticore'];
+    const supportedJackets : Array<SupportedJackets> = ['slither', 'mythril'];
     const {jacket} = req.params as {jacket: SupportedJackets};
     if(supportedJackets.includes(jacket)){
         const {network, address} = req.body as {network: string, address: string};
@@ -267,10 +266,6 @@ server.post('/lifejacket/:jacket', async (req: FastifyRequest, reply: FastifyRep
             }
             else if (jacket === 'mythril'){
                 let sr = await testUsingMythril(network as lifejacketSupportedNetwork, address);
-                return reply.send(sr)
-            }
-            else if (jacket === 'manticore'){
-                let sr = await testUsingManticore(network as lifejacketSupportedNetwork, address);
                 return reply.send(sr)
             }
         }
