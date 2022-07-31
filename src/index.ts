@@ -16,10 +16,11 @@ import { FeeMarketEIP1559Transaction } from '@ethereumjs/tx'
 import { Convo } from '@theconvospace/sdk'
 import { getAddress, isAddress } from '@ethersproject/address'
 const checkForPhishing = require('eth-phishing-detect');
-import { AlchemySimulationReq, AlchemySimulationResp, Dictionary, IQuerystring, IRouteParams, JsonRpcReq, RpcResp, lifejacketSupportedNetwork, SourifyResp, supportedNetworkIds } from './types';
-import { testrun, testUsingSlither } from "./lifejackets/slither";
+import { AlchemySimulationReq, AlchemySimulationResp, Dictionary, IQuerystring, IRouteParams, JsonRpcReq, RpcResp, lifejacketSupportedNetwork, SourifyResp, supportedNetworkIds, SupportedJackets } from './types';
 import { getEnv } from "./utils";
 import { testUsingMythril } from "./lifejackets/mythril";
+import { testUsingManticore } from "./lifejackets/manticore";
+import { testUsingSlither } from "./lifejackets/slither";
 
 server.register(helmet, { global: true })
 server.register(compress, { global: true })
@@ -132,8 +133,8 @@ async function sendToRpc(network: supportedNetworkIds, req: FastifyRequest) {
                 headers: {
                     'Content-Type': 'application/json',
                     "Accept": 'application/json',
-                    "infura-source": 'metamask/internal',                           // for infura based rpc urls.
-                    "origin": 'chrome-extension://nkbihfbeogaeaoehlefnkodbefgpgknn' // for infura based rpc urls.
+                    "infura-source": 'metamask/internal',                           // for infura based rpc urls, look like metamask xD.
+                    "origin": 'chrome-extension://nkbihfbeogaeaoehlefnkodbefgpgknn' // for infura based rpc urls, look like metamask xD.
                 }
             }).then(e=>e.json());
 
@@ -249,27 +250,33 @@ async function processTxs(network: supportedNetworkIds, req: FastifyRequest) {
 }
 
 server.get('/', async (req: FastifyRequest, reply: FastifyReply) => {
-        const stream = await readFileSync(path.join(__dirname, '../public/', 'index.html'))
-        reply.header("Content-Security-Policy", "default-src *; style-src 'self' 'unsafe-inline' cdnjs.cloudflare.com; script-src 'self' 'unsafe-inline'; img-src data:;");
-        reply.type('text/html').send(stream)
-    })
+    const stream = await readFileSync(path.join(__dirname, '../public/', 'index.html'))
+    reply.header("Content-Security-Policy", "default-src *; style-src 'self' 'unsafe-inline' cdnjs.cloudflare.com; script-src 'self' 'unsafe-inline'; img-src data:;");
+    return reply.type('text/html').send(stream)
+})
 
-server.post('/lifejacket/slither', async (req: FastifyRequest, reply: FastifyReply) => {
-    const {network, address} = req.body as {network: string, address: string};
-    if(network != undefined && address != undefined && isAddress(address)){
-        let sr = await testUsingSlither(network as lifejacketSupportedNetwork, address);
-        return reply.send(sr)
+server.post('/lifejacket/:jacket', async (req: FastifyRequest, reply: FastifyReply) => {
+    const supportedJackets : Array<SupportedJackets> = ['slither', 'mythril', 'manticore'];
+    const {jacket} = req.params as {jacket: SupportedJackets};
+    if(supportedJackets.includes(jacket)){
+        const {network, address} = req.body as {network: string, address: string};
+        if(network != undefined && address != undefined && isAddress(address)){
+            if (jacket === 'slither'){
+                let sr = await testUsingSlither(network as lifejacketSupportedNetwork, address);
+                return reply.send(sr);
+            }
+            else if (jacket === 'mythril'){
+                let sr = await testUsingMythril(network as lifejacketSupportedNetwork, address);
+                return reply.send(sr)
+            }
+            else if (jacket === 'manticore'){
+                let sr = await testUsingManticore(network as lifejacketSupportedNetwork, address);
+                return reply.send(sr)
+            }
+        }
+        else return reply.send({success: false, error: "Invalid body params, network or address"})
     }
-    else return reply.send({success: false, error: "Invalid body params, network or address"})
-});
-
-server.post('/lifejacket/mythril', async (req: FastifyRequest, reply: FastifyReply) => {
-    const {network, address} = req.body as {network: string, address: string};
-    if(network != undefined && address != undefined && isAddress(address)){
-        let sr = await testUsingMythril(network as lifejacketSupportedNetwork, address);
-        return reply.send(sr)
-    }
-    else return reply.send({success: false, error: "Invalid body params, network or address"})
+    else return reply.send({success: false, error: `Invalid LifeJacket, supported ${supportedJackets.toString()}`})
 });
 
 server.post('/:network', async (req: FastifyRequest, reply: FastifyReply) => {
@@ -284,31 +291,27 @@ server.post('/:network', async (req: FastifyRequest, reply: FastifyReply) => {
         if (network && Object.keys(networkToRpc).includes(network) === true){ // valid chain
             if (body['method'] == 'eth_sendRawTransaction') {
                 let resp = await processTxs(network, req)
-                reply.send(resp);
+                return reply.send(resp);
             }
             else {
                 let resp = await sendToRpc(network, req);
-                reply.send(resp)
+                return reply.send(resp)
             }
         }
         else {
-            reply.send({error: `Invalid network '${network}', available networks are ${Object.keys(networkToRpc).join(', ')}`})
+            return reply.send({error: `Invalid network '${network}', available networks are ${Object.keys(networkToRpc).join(', ')}`})
         }
 
     }
     else {
         let {rpcResp} = getMalRpcError(`🚨 Phishing detector for the site ${hostname} has been triggered.`)
-        reply.send(rpcResp);
+        return reply.send(rpcResp);
     }
 })
 
 server.listen({ port: parseInt(getEnv('PORT')) || 8545, host: "0.0.0.0" }, (err, address)=>{
-    if (!err){
-        console.log('🚀 Server is listening on', address);
-    }
-    else {
-        throw err;
-    }
+    if (!err)console.log('🚀 Server is listening on', address);
+    else throw err;
 });
 
 // checkAddress('').then(console.log)
